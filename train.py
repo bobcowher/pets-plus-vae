@@ -2,5 +2,5 @@ from agent import Agent
 
 agent = Agent(human=True)
 
-agent.train()
+agent.collect_dataset()
 

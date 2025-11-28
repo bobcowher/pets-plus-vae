@@ -1,19 +1,26 @@
 import gymnasium as gym
 from model import VAE 
 import torch
+from buffer import ReplayBuffer
 import cv2
 
 class Agent:
 
-    def __init__(self, human=False):
+    def __init__(self, human=False, max_buffer_size=100000):
         if(human):
             render_mode = "human"
         else:
             render_mode = "rgb_array"
 
         self.env = gym.make("CarRacing-v3", render_mode=render_mode, lap_complete_percent=0.95, domain_randomize=False, continuous=False)
+
+        obs, info = self.env.reset()
         
-        self.VAE = VAE(observation_shape=(64, 64, 3))
+        self.VAE = VAE(observation_shape=obs.shape)
+
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+
+        self.memory = ReplayBuffer(max_size=max_buffer_size, input_shape=obs.shape, n_actions=self.env.action_space.n, input_device=self.device, output_device=self.device)
 
 
     def process_observation(self, obs):
@@ -26,11 +33,13 @@ class Agent:
         return obs 
 
 
-    def train(self, episodes=1):
+    def collect_dataset(self, 
+                        episodes=0):
 
         for episode in range(episodes):
             done = False
             obs, info = self.env.reset()
+            obs = self.process_observation(obs)
 
             
             while not done:
@@ -41,6 +50,9 @@ class Agent:
                 print(obs)
             
                 obs = self.process_observation(obs)
-                pred, enc = self.VAE(obs)
+
+                
+
+                # pred, enc = self.VAE(obs)
 
 
