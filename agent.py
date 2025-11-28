@@ -32,12 +32,15 @@ class Agent:
             done = False
             obs, info = self.env.reset()
 
-            obs = self.process_observation(obs)
-
-            pred, enc = self.VAE(obs)
             
             while not done:
                 action = self.env.action_space.sample()
-                response = self.env.step(action)
+                obs, reward, done, truncated, info  = self.env.step(action)
+
+                done = done or truncated    
+                print(obs)
+            
+                obs = self.process_observation(obs)
+                pred, enc = self.VAE(obs)
 
 

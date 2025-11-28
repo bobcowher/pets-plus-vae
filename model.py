@@ -48,14 +48,13 @@ class VAE(nn.Module):
     def forward(self, x):
         x = x / 255.0
 
-        print(x.mean())
+        # print(x.mean())
 
         x = self._conv_forward(x)
     
+        x = self.flatten(x)
+
         print(x)
-
-        # x = self.flatten(x)
-
         # x = self.compression(x)
 
         # Saving off the compression layer as an output
