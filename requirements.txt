@@ -2,6 +2,7 @@ numpy
 tensorboard
 matplotlib
 gymnasium[box2d]
+opencv-python
 --extra-index-url https://download.pytorch.org/whl/cu129
 #--extra-index-url https://download.pytorch.org/whl/cu118
 torch
