@@ -76,6 +76,9 @@ class Agent:
             # 2 — Q(s,a) with the online network
             predicted_observations = self.vae(observations)
 
+            print("Obs:", type(observations))
+            print("Pred:", type(predicted_observations))
+
             # 4 — loss & optimise
             loss = F.mse_loss(observations, predicted_observations)
             # writer.add_scalar("Stats/model_loss", loss.item(), total_steps)
