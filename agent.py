@@ -3,6 +3,7 @@ from model import VAE
 import torch
 import torch.nn.functional as F
 from buffer import ReplayBuffer, device
+import matplotlib.pyplot as plt
 import cv2
 import os
 
@@ -16,10 +17,10 @@ class Agent:
 
         self.env = gym.make("CarRacing-v3", render_mode=render_mode, lap_complete_percent=0.95, domain_randomize=False, continuous=False)
 
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        
         obs, info = self.env.reset()
         obs = self.process_observation(obs)
-        
-        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         
         self.vae = VAE(observation_shape=obs.shape).to(self.device)
         self.vae_optimizer = torch.optim.Adam(self.vae.parameters(), learning_rate) 
@@ -29,12 +30,16 @@ class Agent:
         os.makedirs('models', exist_ok=True)
 
 
+    def load_models(self):
+        self.vae.load_the_model(filename="models/latest_vae.pt")
+
+
     def process_observation(self, obs):
         # obs = obs.cpu().numpy()
 
         obs = cv2.resize(obs, (64, 64), interpolation=cv2.INTER_NEAREST)
 
-        obs = torch.from_numpy(obs).float().permute(2, 0, 1)
+        obs = torch.from_numpy(obs).float().permute(2, 0, 1).to(self.device)
 
         return obs 
 
@@ -66,6 +71,14 @@ class Agent:
             print(f"Completed episode {episode} with score {episode_reward}")
 
             self.memory.print_stats()
+    
+
+    def show(self, x, recon):
+        img = torch.cat([x[0], recon[0].clamp(0,1)], dim=2)   # side-by-side
+        plt.imshow(img.permute(1,2,0).cpu().numpy())
+        plt.axis("off")
+        plt.show()
+
 
     def train_vae(self,
                   epochs : int,
@@ -93,7 +106,25 @@ class Agent:
         self.vae.save_the_model(filename="models/latest_vae.pt")
 
 
-    # def test_vae(self)
+    def test_vae(self):
+        done = False
+        obs, info = self.env.reset()
+        obs = self.process_observation(obs)
+        
+        while not done:
+
+            predicted_obs, encoded_obs = self.vae(obs.unsqueeze(0))
+            self.show(obs, predicted_obs[0])
+
+            action = self.env.action_space.sample()
+            
+            next_obs, reward, done, truncated, info  = self.env.step(action)
+            next_obs = self.process_observation(next_obs)
+            
+            done = done or truncated    
+
+            obs = next_obs
+
 
 
 
