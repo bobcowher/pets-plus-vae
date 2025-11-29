@@ -1,12 +1,13 @@
 import gymnasium as gym
 from model import VAE 
 import torch
-from buffer import ReplayBuffer
+import torch.nn.functional as F
+from buffer import ReplayBuffer, device
 import cv2
 
 class Agent:
 
-    def __init__(self, human=False, max_buffer_size=100000):
+    def __init__(self, human=False, max_buffer_size=100000, learning_rate=0.0001):
         if(human):
             render_mode = "human"
         else:
@@ -17,9 +18,10 @@ class Agent:
         obs, info = self.env.reset()
         obs = self.process_observation(obs)
         
-        self.VAE = VAE(observation_shape=obs.shape)
-
         self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        
+        self.vae = VAE(observation_shape=obs.shape).to(self.device)
+        self.vae_optimizer = torch.optim.Adam(self.vae.parameters(), learning_rate) 
 
         self.memory = ReplayBuffer(max_size=max_buffer_size, input_shape=obs.shape, n_actions=self.env.action_space.n, input_device=self.device, output_device=self.device)
 
@@ -35,7 +37,7 @@ class Agent:
 
 
     def collect_dataset(self, 
-                        episodes=0):
+                        episodes : int):
 
         for episode in range(episodes):
             done = False
@@ -62,6 +64,30 @@ class Agent:
 
             self.memory.print_stats()
 
+    def train_vae(self,
+                  epochs : int,
+                  batch_size: int):
+
+        for epoch in range(epochs):
+
+            # 1 — sample & reshape
+            observations, _, _, _, _ = self.memory.sample_buffer(batch_size)
+
+            # 2 — Q(s,a) with the online network
+            predicted_observations = self.vae(observations)
+
+            # 4 — loss & optimise
+            loss = F.mse_loss(observations, predicted_observations)
+            # writer.add_scalar("Stats/model_loss", loss.item(), total_steps)
+
+            self.vae_optimizer.zero_grad()
+            loss.backward()
+            self.vae_optimizer.step()
+
+        self.vae.save_the_model(filename="models/latest_vae.pt")
+
+
+    # def test_vae(self)
 
 
 
