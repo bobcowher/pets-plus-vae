@@ -1,6 +1,6 @@
 from agent import Agent
 
-agent = Agent(human=True)
+agent = Agent(human=False)
 
-agent.collect_dataset()
+agent.collect_dataset(episodes=10)
 

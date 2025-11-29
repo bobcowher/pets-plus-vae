@@ -15,6 +15,7 @@ class Agent:
         self.env = gym.make("CarRacing-v3", render_mode=render_mode, lap_complete_percent=0.95, domain_randomize=False, continuous=False)
 
         obs, info = self.env.reset()
+        obs = self.process_observation(obs)
         
         self.VAE = VAE(observation_shape=obs.shape)
 
@@ -40,16 +41,31 @@ class Agent:
             done = False
             obs, info = self.env.reset()
             obs = self.process_observation(obs)
+            episode_reward = 0.0
 
             
             while not done:
                 action = self.env.action_space.sample()
-                obs, reward, done, truncated, info  = self.env.step(action)
-
+                
+                next_obs, reward, done, truncated, info  = self.env.step(action)
+                next_obs = self.process_observation(next_obs)
+                
                 done = done or truncated    
-                print(obs)
+
+                self.memory.store_transition(obs, action, reward, next_obs, done)
+
+                obs = next_obs
+
+                episode_reward = episode_reward + float(reward)
+
+            print(f"Completed episode {episode} with score {episode_reward}")
+
+            self.memory.print_stats()
+
+
+
+
             
-                obs = self.process_observation(obs)
 
                 
 

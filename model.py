@@ -25,7 +25,7 @@ class VAE(nn.Module):
         self.deconv4 = nn.ConvTranspose2d(32, observation_shape[-1], kernel_size=8, stride=4, padding=2)
         # self.conv3 = nn.Conv2d()
 
-        print("Network initialized...")
+        print("VAE network initialized.")
 
     def _conv_forward(self, x):
         x = F.relu(self.conv1(x))

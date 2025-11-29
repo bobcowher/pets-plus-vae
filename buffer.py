@@ -81,3 +81,10 @@ class ReplayBuffer:
         actions     = self.action_memory[batch].to(self.output_device)
 
         return states, actions, rewards, next_states, dones
+    
+
+    def print_stats(self):
+
+        buffer_size = min(self.mem_ctr, self.mem_size)
+
+        print(f"{buffer_size} memories in buffer.")
