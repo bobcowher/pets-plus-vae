@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from buffer import ReplayBuffer, device
 import cv2
+import os
 
 class Agent:
 
@@ -24,6 +25,8 @@ class Agent:
         self.vae_optimizer = torch.optim.Adam(self.vae.parameters(), learning_rate) 
 
         self.memory = ReplayBuffer(max_size=max_buffer_size, input_shape=obs.shape, n_actions=self.env.action_space.n, input_device=self.device, output_device=self.device)
+
+        os.makedirs('models', exist_ok=True)
 
 
     def process_observation(self, obs):
@@ -74,11 +77,11 @@ class Agent:
             observations, _, _, _, _ = self.memory.sample_buffer(batch_size)
 
             # 2 — Q(s,a) with the online network
-            predicted_observations = self.vae(observations)
+            predicted_observations, encoded_observations = self.vae(observations)
 
-            print("Obs:", type(observations))
-            print("Pred:", type(predicted_observations))
-
+            # print("Obs:", type(observations))
+            # print("Pred:", type(predicted_observations))
+            #
             # 4 — loss & optimise
             loss = F.mse_loss(observations, predicted_observations)
             # writer.add_scalar("Stats/model_loss", loss.item(), total_steps)
