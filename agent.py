@@ -74,10 +74,10 @@ class Agent:
     
 
     def show(self, x, recon):
-        img = torch.cat([x[0], recon[0].clamp(0,1)], dim=2)   # side-by-side
-        plt.imshow(img.permute(1,2,0).cpu().numpy())
+        img = torch.cat([x, recon.clamp(0,1)], dim=2)   # side-by-side
+        plt.imshow(img.permute(1,2,0).cpu().detach().numpy())
         plt.axis("off")
-        plt.show()
+        plt.pause(0.001)   # ← non-blocking
 
 
     def train_vae(self,
@@ -97,6 +97,7 @@ class Agent:
             #
             # 4 — loss & optimise
             loss = F.mse_loss(observations, predicted_observations)
+            print(f"VAE Loss: {loss.item()}")
             # writer.add_scalar("Stats/model_loss", loss.item(), total_steps)
 
             self.vae_optimizer.zero_grad()
@@ -114,7 +115,7 @@ class Agent:
         while not done:
 
             predicted_obs, encoded_obs = self.vae(obs.unsqueeze(0))
-            self.show(obs, predicted_obs[0])
+            self.show(obs / 255.0, predicted_obs[0])
 
             action = self.env.action_space.sample()
             

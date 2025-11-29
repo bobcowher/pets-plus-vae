@@ -71,9 +71,9 @@ class ReplayBuffer:
 
         # Cast / move once, right here
         states      = self.state_memory[batch]     \
-                        .to(self.output_device, dtype=torch.float32)
+                        .to(self.output_device, dtype=torch.float32) / 255.0
         next_states = self.next_state_memory[batch]\
-                        .to(self.output_device, dtype=torch.float32)
+                        .to(self.output_device, dtype=torch.float32) / 255.0 
         rewards     = self.reward_memory[batch].to(self.output_device)
         dones       = self.terminal_memory[batch].to(self.output_device)
 

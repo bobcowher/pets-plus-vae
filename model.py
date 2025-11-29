@@ -75,12 +75,12 @@ class VAE(BaseModel):
         x = F.relu(self.deconv2(x))
         x = F.relu(self.deconv3(x))
         x = F.relu(self.deconv4(x))
-        
+       
         return x
         
     
     def forward(self, x):
-        x = x / 255.0
+        # x = x / 255.0
 
         x = self._conv_forward(x)
 
@@ -90,7 +90,7 @@ class VAE(BaseModel):
         
         x = self._deconv_forward(x)
 
-        return x, enc 
+        return torch.sigmoid(x), enc 
 
 
 
