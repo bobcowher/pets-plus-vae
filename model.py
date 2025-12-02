@@ -47,6 +47,9 @@ class VAE(BaseModel):
         latent_dim = 32  # or whatever you pick
 
         self.fc_enc = nn.Linear(self.flattened_dim, latent_dim)
+        # self.fc_dec = nn.Linear(latent_dim, self.flattened_dim)
+        self.fc_mu = nn.Linear(self.flattened_dim, latent_dim)
+        self.fc_logvar = nn.Linear(self.flattened_dim, latent_dim)
         self.fc_dec = nn.Linear(latent_dim, self.flattened_dim)
 
         self.deconv1 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=1, padding=1)
@@ -56,6 +59,12 @@ class VAE(BaseModel):
         # self.conv3 = nn.Conv2d()
 
         print(f"VAE network initialized. Input shape: {observation_shape}")
+
+
+    def _reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
 
     def _conv_features(self, x):
         x = F.relu(self.conv1(x))
@@ -84,13 +93,18 @@ class VAE(BaseModel):
 
         x = self._conv_forward(x)
 
-        x = F.relu(self.fc_enc(x))
-        enc = x
-        x = F.relu(self.fc_dec(x))
-        
+        mu = self.fc_mu(x)
+        logvar = self.fc_logvar(x)
+
+        z = self._reparameterize(mu, logvar)
+
+        x = F.relu(self.fc_dec(z))
+
         x = self._deconv_forward(x)
 
-        return torch.sigmoid(x), enc 
+        recon = torch.sigmoid(x)
+
+        return recon, mu, logvar, z
 
 
 

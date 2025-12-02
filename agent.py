@@ -124,19 +124,26 @@ class Agent:
             observations, _, _, _, _ = self.memory.sample_buffer(batch_size)
 
             # 2 — Q(s,a) with the online network
-            predicted_observations, encoded_observations = self.vae(observations)
+            recon, mu, logvar, z = self.vae(observations)
 
             # print("Obs:", type(observations))
             # print("Pred:", type(predicted_observations))
             #
             # 4 — loss & optimise
-            loss = F.mse_loss(observations, predicted_observations)
-            print(f"VAE Loss: {loss.item()}")
+            recon_loss = F.mse_loss(observations, recon)
             # writer.add_scalar("Stats/model_loss", loss.item(), total_steps)
+            kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
+
+            beta = 1e-4
+
+            loss = recon_loss + beta * kl
 
             self.vae_optimizer.zero_grad()
             loss.backward()
             self.vae_optimizer.step()
+
+            print(f"VAE Recon Loss: {recon_loss.item()}")
+            print(f"VAE Loss {loss.item()}")
 
         self.vae.save_the_model(filename="models/latest_vae.pt")
 
@@ -150,7 +157,7 @@ class Agent:
             while step < max_steps:
                 inp = (obs / 255.0).unsqueeze(0)
                 with torch.no_grad():
-                    recon, _ = self.vae(inp)
+                    recon, _, _, _ = self.vae(inp)
 
                 # side-by-side
                 pair = torch.cat([obs / 255.0, recon[0].clamp(0,1)], dim=2)  # (3, H, 2W)
