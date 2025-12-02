@@ -2,7 +2,7 @@ from agent import Agent
 
 agent = Agent(human=False)
 
-agent.collect_dataset(episodes=20)
+agent.collect_dataset(episodes=100)
 
-agent.train_vae(epochs=100, batch_size=32)
+agent.train_vae(epochs=1000, batch_size=32)
 

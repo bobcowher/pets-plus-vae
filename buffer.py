@@ -30,8 +30,8 @@ class ReplayBuffer:
             (max_size, *input_shape), dtype=torch.uint8, device=self.input_device
         )
 
-        # Actions as scalar indices for torch.gather
-        self.action_memory  = torch.zeros(max_size, dtype=torch.int64,
+        # Actions as vectors for continuous action spaces
+        self.action_memory  = torch.zeros((max_size, n_actions), dtype=torch.float32,
                                           device=self.input_device)
         self.reward_memory  = torch.zeros(max_size, dtype=torch.float32,
                                           device=self.input_device)
@@ -55,7 +55,7 @@ class ReplayBuffer:
         self.next_state_memory[idx] = torch.as_tensor(
             next_state, dtype=torch.uint8, device=self.input_device)
 
-        self.action_memory[idx]   = int(action)
+        self.action_memory[idx]   = torch.as_tensor(action, dtype=torch.float32, device=self.input_device)
         self.reward_memory[idx]   = float(reward)
         self.terminal_memory[idx] = bool(done)
 
