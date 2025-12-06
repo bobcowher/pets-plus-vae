@@ -28,10 +28,10 @@ class VAE(BaseModel):
         # print(observation_shape[-1])
         # conv_output_dim = 64
 
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=8, stride=4, padding=2)
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=4, stride=2, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=4, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(128, 256, kernel_size=2, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1)
+        self.conv4 = nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1)
 
         self.flatten = torch.nn.Flatten()
 
@@ -41,21 +41,21 @@ class VAE(BaseModel):
             self.conv_output_shape = feats.shape[1:]   # (C_enc, H_enc, W_enc)
             self.flattened_dim = feats.numel() // 1    # C_enc * H_enc * W_enc
 
-        conv_output = self._conv_forward(torch.zeros(1, *observation_shape))
-        conv_output_dim = conv_output.shape[-1]
+        # conv_output = self._conv_forward(torch.zeros(1, *observation_shape))
+        # conv_output_dim = conv_output.shape[-1]
 
-        latent_dim = 32  # or whatever you pick
+        latent_dim = 64  # or whatever you pick
 
-        self.fc_enc = nn.Linear(self.flattened_dim, latent_dim)
+        # self.fc_enc = nn.Linear(self.flattened_dim, latent_dim)
         # self.fc_dec = nn.Linear(latent_dim, self.flattened_dim)
         self.fc_mu = nn.Linear(self.flattened_dim, latent_dim)
         self.fc_logvar = nn.Linear(self.flattened_dim, latent_dim)
         self.fc_dec = nn.Linear(latent_dim, self.flattened_dim)
 
-        self.deconv1 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=1, padding=1)
-        self.deconv2 = nn.ConvTranspose2d(128, 64, kernel_size=4, stride=1, padding=1)
+        self.deconv1 = nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1)
+        self.deconv2 = nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1)
         self.deconv3 = nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1)
-        self.deconv4 = nn.ConvTranspose2d(32, observation_shape[0], kernel_size=8, stride=4, padding=2)
+        self.deconv4 = nn.ConvTranspose2d(32, observation_shape[0], kernel_size=4, stride=2, padding=1)
         # self.conv3 = nn.Conv2d()
 
         print(f"VAE network initialized. Input shape: {observation_shape}")
@@ -87,6 +87,14 @@ class VAE(BaseModel):
        
         return x
         
+    def encode(self, x):
+        # x: (B,3,H,W) in [0,1]
+        with torch.no_grad():
+            x = self._conv_forward(x)
+            mu = self.fc_mu(x)
+            logvar = self.fc_logvar(x)
+            z = self._reparameterize(mu, logvar)
+        return z
     
     def forward(self, x):
         # x = x / 255.0
