@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 import os
+import random
+import sys
 
 from torch._C import device
 
@@ -63,10 +65,16 @@ class ReplayBuffer:
 
     # ------------------------------------------------------------------ #
 
-    def sample_buffer(self, batch_size):
+    def sample_buffer(self, batch_size, contiguous=False):
         """Return tensors ready for training (on `output_device`)."""
+
         max_mem = min(self.mem_ctr, self.mem_size)
-        batch   = torch.randint(0, max_mem, (batch_size,),
+
+        if(contiguous):
+            start_pos = random.randint(0, max_mem - batch_size)
+            batch   = torch.arange(start_pos, start_pos + batch_size)
+        else:
+            batch   = torch.randint(0, max_mem, (batch_size,),
                                 device=self.input_device, dtype=torch.int64)
 
         # Cast / move once, right here

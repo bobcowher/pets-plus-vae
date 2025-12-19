@@ -1,5 +1,5 @@
 import gymnasium as gym
-from model import VAE 
+from model import VAE, EnsembleModel 
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -7,6 +7,9 @@ from buffer import ReplayBuffer, device
 import matplotlib.pyplot as plt
 import cv2
 import os
+import sys
+from torch.utils.tensorboard import SummaryWriter
+import datetime
 
 class Agent:
 
@@ -21,10 +24,17 @@ class Agent:
         self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         
         obs, info = self.env.reset()
+        action = self.env.action_space.sample()
+
+        print(f"Sample Action: {action}")
+
         obs = self.process_observation(obs)
         
         self.vae = VAE(observation_shape=obs.shape).to(self.device)
         self.vae_optimizer = torch.optim.Adam(self.vae.parameters(), learning_rate) 
+
+        self.ensemble = EnsembleModel(obs_shape=obs.shape[0], action_shape=action.shape[0], device=self.device)
+
 
         self.memory = ReplayBuffer(max_size=max_buffer_size, input_shape=obs.shape, n_actions=self.env.action_space.shape[0], input_device=self.device, output_device=self.device)
 
@@ -112,6 +122,93 @@ class Agent:
         cv2.imshow(win_name, img)
         key = cv2.waitKey(delay) & 0xFF
         return key != ord('q')
+
+    
+    def plan_action(self, current_state, horizon=10, num_samples=100):
+        current_state = torch.tensor(current_state, dtype=torch.float32).to(self.device)
+
+        action_sequences = torch.rand(num_samples, horizon, 2).to(self.device) * 2 - 1
+        
+        # Vectorized rollouts
+        states = current_state.unsqueeze(0).expand(num_samples, -1)  # [num_samples, state_dim]
+        total_returns = torch.zeros(num_samples, device=self.device)
+        
+        for t in range(horizon):
+            actions = action_sequences[:, t, :]  # [num_samples, action_dim]
+            
+            # Batch forward pass
+            delta_states, rewards, delta_uncertainty, reward_uncertainty = self.model.predict(states, actions) 
+            states = states + delta_states
+                
+            uncertainty_penalty = delta_uncertainty.sum(-1) + reward_uncertainty.squeeze(-1)
+
+            total_returns += rewards.squeeze(-1)
+            total_returns -= 25.0 * uncertainty_penalty  # Reduced uncertainty penalty
+        # 
+        best_idx = torch.argmax(total_returns)
+        return action_sequences[best_idx, 0].cpu().numpy()
+
+    
+    def train(self, episodes):
+
+        total_steps = 0
+        best_score = -1000
+
+        summary_writer_name = f'runs/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+        writer = SummaryWriter(summary_writer_name)
+
+        for episode in range(episodes):
+            done = False
+            episode_reward = 0.0
+            obs, info = self.env.reset()
+
+            while not done:
+                if episode < 10:
+                    action = self.env.action_space.sample()
+                else:
+                    action = self.plan_action(current_state=obs)
+
+                next_obs, reward, done, truncated, info = self.env.step(action)
+                self.memory.store_transition(obs, action, reward, next_obs, done)
+                obs = next_obs
+                episode_reward = episode_reward + float(reward)
+                # self.env.render()
+  
+                if(done or truncated):
+                    break
+
+            if(episode_reward > best_score):
+                best_score = episode_reward
+                self.ensemble.save_the_model('best.pt')
+
+            self.ensemble.save_the_model('latest.pt')
+            
+            writer.add_scalar("Score/Episode Reward", episode_reward, episode)
+            print(f"Episode {episode} finished. Reward: {episode_reward}")
+
+            
+            if(episode % 10 == 0):
+    
+                self.train_vae(epochs=50, batch_size=64)
+
+                for _ in range(100):
+                    if(self.memory.can_sample(batch_size=self.batch_size)):
+                        states, actions, rewards, next_states, dones = self.memory.sample_buffer(batch_size=self.batch_size)
+                       
+                        # actions = actions.unsqueeze(1).long()
+                        rewards = rewards.unsqueeze(1)
+                        dones = dones.unsqueeze(1).float()
+
+        #                    predicted_obs_diffs, predicated_rewards = self.model.predict(states, actions)
+
+                        loss = self.ensemble.train_step(states=states,
+                                                     next_states=next_states,
+                                                     actions=actions,
+                                                     rewards=rewards)
+
+                        writer.add_scalar("Loss/model", loss, total_steps)
+
+                        total_steps += 1
 
 
     def train_vae(self,
