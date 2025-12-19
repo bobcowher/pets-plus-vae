@@ -166,6 +166,7 @@ class Agent:
                 if episode < 10:
                     action = self.env.action_space.sample()
                 else:
+                    _, _, _, z_obs = self.vae(obs)
                     action = self.plan_action(current_state=obs)
 
                 next_obs, reward, done, truncated, info = self.env.step(action)
@@ -194,6 +195,9 @@ class Agent:
                 for _ in range(100):
                     if(self.memory.can_sample(batch_size=self.batch_size)):
                         states, actions, rewards, next_states, dones = self.memory.sample_buffer(batch_size=self.batch_size)
+
+                        _, _, _, z_states = self.vae(states)
+                        _, _, _, z_next_states = self.vae(next_states)
                        
                         # actions = actions.unsqueeze(1).long()
                         rewards = rewards.unsqueeze(1)
@@ -201,10 +205,10 @@ class Agent:
 
         #                    predicted_obs_diffs, predicated_rewards = self.model.predict(states, actions)
 
-                        loss = self.ensemble.train_step(states=states,
-                                                     next_states=next_states,
-                                                     actions=actions,
-                                                     rewards=rewards)
+                        loss = self.ensemble.train_step(states=z_states,
+                                                        next_states=z_next_states,
+                                                        actions=actions,
+                                                        rewards=rewards)
 
                         writer.add_scalar("Loss/model", loss, total_steps)
 
