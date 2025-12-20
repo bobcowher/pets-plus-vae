@@ -13,7 +13,7 @@ import datetime
 
 class Agent:
 
-    def __init__(self, human=False, max_buffer_size=100000, learning_rate=0.0001):
+    def __init__(self, human=False, max_buffer_size=100000, learning_rate=0.0001, batch_size=32):
         if(human):
             render_mode = "human"
         else:
@@ -32,8 +32,10 @@ class Agent:
         
         self.vae = VAE(observation_shape=obs.shape).to(self.device)
         self.vae_optimizer = torch.optim.Adam(self.vae.parameters(), learning_rate) 
+        
+        _, _, _, z_obs = self.vae(obs)
 
-        self.ensemble = EnsembleModel(obs_shape=obs.shape[0], action_shape=action.shape[0], device=self.device)
+        self.ensemble = EnsembleModel(obs_shape=z_obs.shape[1], action_shape=action.shape[0], device=self.device)
 
 
         self.memory = ReplayBuffer(max_size=max_buffer_size, input_shape=obs.shape, n_actions=self.env.action_space.shape[0], input_device=self.device, output_device=self.device)
@@ -41,6 +43,7 @@ class Agent:
         os.makedirs('models', exist_ok=True)
 
         self.left_bias = True
+        self.batch_size = batch_size
 
 
     def load_models(self):
@@ -63,12 +66,8 @@ class Agent:
 
 
     def process_observation(self, obs):
-        # obs = obs.cpu().numpy()
-
         obs = cv2.resize(obs, (64, 64), interpolation=cv2.INTER_NEAREST)
-
-        obs = torch.from_numpy(obs).float().permute(2, 0, 1).to(self.device)
-
+        obs = torch.from_numpy(obs).permute(2, 0, 1).to(self.device)
         return obs 
 
 
@@ -125,9 +124,12 @@ class Agent:
 
     
     def plan_action(self, current_state, horizon=10, num_samples=100):
-        current_state = torch.tensor(current_state, dtype=torch.float32).to(self.device)
+        # current_state is already a latent vector from VAE, no conversion needed
+        if len(current_state.shape) == 2 and current_state.shape[0] == 1:
+            current_state = current_state.squeeze(0)  # Remove batch dimension if present
 
-        action_sequences = torch.rand(num_samples, horizon, 2).to(self.device) * 2 - 1
+        # Car Racing has 3 actions: steering, gas, brake
+        action_sequences = torch.rand(num_samples, horizon, 3).to(self.device) * 2 - 1
         
         # Vectorized rollouts
         states = current_state.unsqueeze(0).expand(num_samples, -1)  # [num_samples, state_dim]
@@ -137,7 +139,7 @@ class Agent:
             actions = action_sequences[:, t, :]  # [num_samples, action_dim]
             
             # Batch forward pass
-            delta_states, rewards, delta_uncertainty, reward_uncertainty = self.model.predict(states, actions) 
+            delta_states, rewards, delta_uncertainty, reward_uncertainty = self.ensemble.predict(states, actions) 
             states = states + delta_states
                 
             uncertainty_penalty = delta_uncertainty.sum(-1) + reward_uncertainty.squeeze(-1)
@@ -161,17 +163,20 @@ class Agent:
             done = False
             episode_reward = 0.0
             obs, info = self.env.reset()
+            obs = self.process_observation(obs)
 
             while not done:
                 if episode < 10:
                     action = self.env.action_space.sample()
                 else:
-                    _, _, _, z_obs = self.vae(obs)
-                    action = self.plan_action(current_state=obs)
+                    with torch.no_grad():
+                        _, _, _, z_obs = self.vae(obs)
+                    action = self.plan_action(current_state=z_obs)
 
                 next_obs, reward, done, truncated, info = self.env.step(action)
-                self.memory.store_transition(obs, action, reward, next_obs, done)
-                obs = next_obs
+                processed_next_obs = self.process_observation(next_obs)
+                self.memory.store_transition(obs, action, reward, processed_next_obs, done)
+                obs = processed_next_obs
                 episode_reward = episode_reward + float(reward)
                 # self.env.render()
   
@@ -196,8 +201,9 @@ class Agent:
                     if(self.memory.can_sample(batch_size=self.batch_size)):
                         states, actions, rewards, next_states, dones = self.memory.sample_buffer(batch_size=self.batch_size)
 
-                        _, _, _, z_states = self.vae(states)
-                        _, _, _, z_next_states = self.vae(next_states)
+                        with torch.no_grad():
+                            _, _, _, z_states = self.vae(states)
+                            _, _, _, z_next_states = self.vae(next_states)
                        
                         # actions = actions.unsqueeze(1).long()
                         rewards = rewards.unsqueeze(1)
@@ -231,7 +237,9 @@ class Agent:
             # print("Pred:", type(predicted_observations))
             #
             # 4 — loss & optimise
-            recon_loss = F.mse_loss(observations, recon)
+            # Normalize observations for comparison with reconstruction
+            observations_normalized = observations.float() / 255.0
+            recon_loss = F.mse_loss(observations_normalized, recon)
             # writer.add_scalar("Stats/model_loss", loss.item(), total_steps)
             kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
 

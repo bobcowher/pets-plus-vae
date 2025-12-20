@@ -37,10 +37,11 @@ class VAE(BaseModel):
         self.flatten = torch.nn.Flatten()
 
         with torch.no_grad():
-            dummy = torch.zeros(1, *observation_shape)
+            dummy = torch.zeros(1, *observation_shape, dtype=torch.uint8)
             feats = self._conv_features(dummy)         # (1, C_enc, H_enc, W_enc)
             self.conv_output_shape = feats.shape[1:]   # (C_enc, H_enc, W_enc)
             self.flattened_dim = feats.numel() // 1    # C_enc * H_enc * W_enc
+            print(f"Conv output shape: {feats.shape}, flattened dim: {self.flattened_dim}")
 
         # conv_output = self._conv_forward(torch.zeros(1, *observation_shape))
         # conv_output_dim = conv_output.shape[-1]
@@ -68,6 +69,9 @@ class VAE(BaseModel):
         return mu + eps * std
 
     def _conv_features(self, x):
+        # Convert uint8 to float if needed (for initialization)
+        if x.dtype == torch.uint8:
+            x = x.float() / 255.0
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
@@ -98,8 +102,14 @@ class VAE(BaseModel):
         return z
     
     def forward(self, x):
-        # x = x / 255.0
-
+        # Ensure input is uint8 tensor in [0,255] range
+        assert x.dtype == torch.uint8, f"Expected uint8 input, got {x.dtype}"
+        
+        # Add batch dimension if missing
+        if x.dim() == 3:
+            x = x.unsqueeze(0)
+        
+        x = x.float() / 255.0
         x = self._conv_forward(x)
 
         mu = self.fc_mu(x)

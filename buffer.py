@@ -77,11 +77,11 @@ class ReplayBuffer:
             batch   = torch.randint(0, max_mem, (batch_size,),
                                 device=self.input_device, dtype=torch.int64)
 
-        # Cast / move once, right here
+        # Cast / move once, right here - keep as uint8 for VAE
         states      = self.state_memory[batch]     \
-                        .to(self.output_device, dtype=torch.float32) / 255.0
+                        .to(self.output_device, dtype=torch.uint8)
         next_states = self.next_state_memory[batch]\
-                        .to(self.output_device, dtype=torch.float32) / 255.0 
+                        .to(self.output_device, dtype=torch.uint8) 
         rewards     = self.reward_memory[batch].to(self.output_device)
         dones       = self.terminal_memory[batch].to(self.output_device)
 
