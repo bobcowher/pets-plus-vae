@@ -6,5 +6,5 @@ agent = Agent(human=False)
 
 # agent.train_vae(epochs=1000, batch_size=64)
 
-agent.train(episodes=10000)
+agent.train(episodes=1000)
 

@@ -225,12 +225,12 @@ class Agent:
             writer.add_scalar("Score/Episode Reward", episode_reward, episode)
             print(f"Episode {episode} finished. Reward: {episode_reward}")
 
-            
-            if(episode % 10 == 0):
-    
+            if(episode % 50 == 0):
                 self.train_vae(epochs=50, batch_size=64)
+            
+            if(episode % 10 == 0 and episode > 100):
 
-                for _ in range(100):
+                for _ in range(50):
                     if(self.memory.can_sample(batch_size=self.batch_size)):
                         states, actions, rewards, next_states, dones = self.memory.sample_buffer(batch_size=self.batch_size)
 
