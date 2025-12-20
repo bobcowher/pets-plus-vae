@@ -46,8 +46,19 @@ class Agent:
         self.batch_size = batch_size
 
 
-    def load_models(self):
-        self.vae.load_the_model(filename="models/latest_vae.pt")
+    def save_models(self, prefix="latest"):
+        """Save all models (VAE and ensemble) to disk"""
+        print("Saving models...")
+        self.vae.save_the_model(filename=f"models/{prefix}_vae.pt")
+        self.ensemble.save_the_model(filename=f"{prefix}.pt")
+        print("Model saving complete.")
+
+    def load_models(self, prefix="latest"):
+        """Load all trained models (VAE and ensemble) from disk"""
+        print("Loading models...")
+        self.vae.load_the_model(filename=f"models/{prefix}_vae.pt", device=self.device)
+        self.ensemble.load_the_model(filename=f"{prefix}.pt", device=self.device)
+        print("Model loading complete.")
 
 
     def heuristic_action(self):
@@ -151,6 +162,28 @@ class Agent:
         return action_sequences[best_idx, 0].cpu().numpy()
 
     
+    def test(self):
+
+        done = False
+        episode_reward = 0.0
+        obs, info = self.env.reset()
+        obs = self.process_observation(obs)
+
+        while not done:
+            with torch.no_grad():
+                _, _, _, z_obs = self.vae(obs)
+            action = self.plan_action(current_state=z_obs)
+
+            next_obs, reward, done, truncated, info = self.env.step(action)
+            processed_next_obs = self.process_observation(next_obs)
+            self.memory.store_transition(obs, action, reward, processed_next_obs, done)
+            obs = processed_next_obs
+            episode_reward = episode_reward + float(reward)
+
+            if(done or truncated):
+                break
+
+    
     def train(self, episodes):
 
         total_steps = 0
@@ -185,9 +218,9 @@ class Agent:
 
             if(episode_reward > best_score):
                 best_score = episode_reward
-                self.ensemble.save_the_model('best.pt')
+                self.save_models(prefix='best')
 
-            self.ensemble.save_the_model('latest.pt')
+            self.save_models(prefix='latest')
             
             writer.add_scalar("Score/Episode Reward", episode_reward, episode)
             print(f"Episode {episode} finished. Reward: {episode_reward}")
@@ -254,7 +287,7 @@ class Agent:
             print(f"VAE Recon Loss: {recon_loss.item()}")
             print(f"VAE Loss {loss.item()}")
 
-        self.vae.save_the_model(filename="models/latest_vae.pt")
+        # VAE is automatically saved with ensemble in the main training loop
 
 
     def test_vae(self, max_steps: int = 500):

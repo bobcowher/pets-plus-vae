@@ -10,15 +10,20 @@ class BaseModel(nn.Module):
         super().__init__(*args, **kwargs)
 
     def save_the_model(self, filename='models/latest.pt'):
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         torch.save(self.state_dict(), filename)
+        print(f"Saved model to {filename}")
 
 
-    def load_the_model(self, filename='models/latest.pt'):
+    def load_the_model(self, filename='models/latest.pt', device='cuda'):
         try:
-            self.load_state_dict(torch.load(filename))
+            self.load_state_dict(torch.load(filename, map_location=device))
             print(f"Loaded weights from {filename}")
         except FileNotFoundError:
             print(f"No weights file found at {filename}")
+        except Exception as e:
+            print(f"Error loading model from {filename}: {e}")
 
 
 class VAE(BaseModel):
@@ -199,21 +204,36 @@ class EnsembleModel:
 
             return avg_obs_diff, avg_reward, obs_uncertainty, reward_uncertainty
     
-    def save_the_model(self, filename='latest'):
+    def save_the_model(self, filename='latest.pt'):
         os.makedirs(self.model_save_dir, exist_ok=True) 
+        
+        # Remove .pt extension if present to maintain consistency
+        base_filename = filename.replace('.pt', '')
 
         for i, model in enumerate(self.models):
-            torch.save(model.state_dict(), f"{self.model_save_dir}/{filename}_{i}.pt")
+            torch.save(model.state_dict(), f"{self.model_save_dir}/{base_filename}_{i}.pt")
+            
+        print(f"Saved ensemble models to {self.model_save_dir}/{base_filename}_*.pt")
 
-    def load_the_model(self, filename='latest.pt'):
+    def load_the_model(self, filename='latest.pt', device='cuda'):
+        # Remove .pt extension if present to maintain consistency  
+        base_filename = filename.replace('.pt', '')
+        
+        loaded_count = 0
         for i, model in enumerate(self.models):
-            file_path = f"{self.model_save_dir}/{filename}_{i}.pt"
+            file_path = f"{self.model_save_dir}/{base_filename}_{i}.pt"
 
             try:
-                model.load_state_dict(torch.load(file_path))
+                model.load_state_dict(torch.load(file_path, map_location=device))
                 print(f"Loaded weights from {file_path}")
+                loaded_count += 1
             except FileNotFoundError:
                 print(f"No weights file found at {file_path}")
+                
+        if loaded_count == len(self.models):
+            print(f"Successfully loaded all {loaded_count} ensemble models")
+        else:
+            print(f"Warning: Only loaded {loaded_count}/{len(self.models)} ensemble models")
 
 
 
