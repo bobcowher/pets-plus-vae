@@ -225,8 +225,6 @@ class Agent:
             writer.add_scalar("Score/Episode Reward", episode_reward, episode)
             print(f"Episode {episode} finished. Reward: {episode_reward}")
 
-            if(episode % 50 == 0):
-                self.train_vae(epochs=50, batch_size=64)
             
             if(episode % 10 == 0 and episode > 100):
 
@@ -242,14 +240,16 @@ class Agent:
                         rewards = rewards.unsqueeze(1)
                         dones = dones.unsqueeze(1).float()
 
-        #                    predicted_obs_diffs, predicated_rewards = self.model.predict(states, actions)
+                        vae_loss, vae_recon_loss = self.train_vae(epochs=1, batch_size=64)
 
                         loss = self.ensemble.train_step(states=z_states,
                                                         next_states=z_next_states,
                                                         actions=actions,
                                                         rewards=rewards)
 
-                        writer.add_scalar("Loss/model", loss, total_steps)
+                        writer.add_scalar("Loss/Ensemble", loss, total_steps)
+                        writer.add_scalar("Loss/VAE", vae_loss, total_steps)
+                        writer.add_scalar("Loss/VAE Recon", vae_recon_loss, total_steps)
 
                         total_steps += 1
 
@@ -257,6 +257,9 @@ class Agent:
     def train_vae(self,
                   epochs : int,
                   batch_size: int):
+
+        total_recon_loss = 0
+        total_loss       = 0
 
         for epoch in range(epochs):
 
@@ -286,6 +289,14 @@ class Agent:
 
             print(f"VAE Recon Loss: {recon_loss.item()}")
             print(f"VAE Loss {loss.item()}")
+
+            total_recon_loss += recon_loss.item()
+            total_loss += loss.item()
+
+        avg_recon_loss = total_recon_loss / epochs
+        ave_loss       = total_loss / epochs
+
+        return ave_loss, avg_recon_loss
 
         # VAE is automatically saved with ensemble in the main training loop
 
