@@ -226,9 +226,9 @@ class Agent:
             print(f"Episode {episode} finished. Reward: {episode_reward}")
 
             
-            if(episode % 10 == 0 and episode > 100):
+            if(episode % 10 == 0):
 
-                for _ in range(50):
+                for _ in range(10):
                     if(self.memory.can_sample(batch_size=self.batch_size)):
                         states, actions, rewards, next_states, dones = self.memory.sample_buffer(batch_size=self.batch_size)
 
