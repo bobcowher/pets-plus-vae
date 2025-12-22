@@ -252,7 +252,11 @@ class Agent:
                         rewards = rewards.unsqueeze(1)
                         dones = dones.unsqueeze(1).float()
 
-                        vae_loss, vae_recon_loss = self.train_vae(epochs=1, batch_size=64)
+                        # We want to train alongside ensemble for the first 400 steps, and the semi-freeze state
+                        if(episode < 400 or episode % 100 == 0):
+                            vae_loss, vae_recon_loss = self.train_vae(epochs=1, batch_size=64)
+                            writer.add_scalar("Loss/VAE", vae_loss, total_steps)
+                            writer.add_scalar("Loss/VAE Recon", vae_recon_loss, total_steps)
 
                         loss = self.ensemble.train_step(states=z_states,
                                                         next_states=z_next_states,
@@ -260,8 +264,6 @@ class Agent:
                                                         rewards=rewards)
 
                         writer.add_scalar("Loss/Ensemble", loss, total_steps)
-                        writer.add_scalar("Loss/VAE", vae_loss, total_steps)
-                        writer.add_scalar("Loss/VAE Recon", vae_recon_loss, total_steps)
 
                         total_steps += 1
 
