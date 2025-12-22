@@ -140,7 +140,19 @@ class Agent:
             current_state = current_state.squeeze(0)  # Remove batch dimension if present
 
         # Car Racing has 3 actions: steering, gas, brake
-        action_sequences = torch.rand(num_samples, horizon, 3).to(self.device) * 2 - 1
+        steering_action_sequences = torch.rand(num_samples, horizon, 1).to(self.device) * 2 - 1
+        throttle_action_sequences = torch.rand(num_samples, horizon, 2).to(self.device)
+
+        # print("Steering: ", steering_action_sequences.shape)
+        # print("Throttle: ", thction_sequences.shape)
+
+        action_sequences = torch.cat([steering_action_sequences, throttle_action_sequences], dim=-1)
+
+        # print("Combined Action sequences: ", action_sequences.shape)
+        #
+        # print("Combined Action sequences: ", action_sequences[0])
+
+        # sys.exit()
         
         # Vectorized rollouts
         states = current_state.unsqueeze(0).expand(num_samples, -1)  # [num_samples, state_dim]
