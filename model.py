@@ -51,7 +51,7 @@ class VAE(BaseModel):
         # conv_output = self._conv_forward(torch.zeros(1, *observation_shape))
         # conv_output_dim = conv_output.shape[-1]
 
-        latent_dim = 64  # or whatever you pick
+        latent_dim = 128  # or whatever you pick
 
         # self.fc_enc = nn.Linear(self.flattened_dim, latent_dim)
         # self.fc_dec = nn.Linear(latent_dim, self.flattened_dim)
