@@ -243,7 +243,7 @@ class Agent:
             
             if(episode % 10 == 0):
 
-                for _ in range(10):
+                for _ in range(50):
                     if(self.memory.can_sample(batch_size=self.batch_size)):
                         states, actions, rewards, next_states, dones = self.memory.sample_buffer(batch_size=self.batch_size)
 
