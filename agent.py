@@ -256,7 +256,7 @@ class Agent:
                         dones = dones.unsqueeze(1).float()
 
                         # We want to train alongside ensemble for the first 400 steps, and the semi-freeze state
-                        if(episode < 400 or episode % 100 == 0):
+                        if(episode < 600):
                             vae_loss, vae_recon_loss = self.train_vae(epochs=1, batch_size=64)
                             writer.add_scalar("Loss/VAE", vae_loss, total_steps)
                             writer.add_scalar("Loss/VAE Recon", vae_recon_loss, total_steps)
