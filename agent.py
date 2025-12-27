@@ -13,7 +13,7 @@ import datetime
 
 class Agent:
 
-    def __init__(self, human=False, max_buffer_size=100000, learning_rate=0.0001, batch_size=32):
+    def __init__(self, human=False, max_buffer_size=100000, learning_rate=0.001, batch_size=32):
         if(human):
             render_mode = "human"
         else:
@@ -134,7 +134,7 @@ class Agent:
         return key != ord('q')
 
     
-    def plan_action(self, current_state, horizon=10, num_samples=100):
+    def plan_action(self, current_state, horizon=10, num_samples=50):
         # current_state is already a latent vector from VAE, no conversion needed
         if len(current_state.shape) == 2 and current_state.shape[0] == 1:
             current_state = current_state.squeeze(0)  # Remove batch dimension if present
@@ -255,8 +255,12 @@ class Agent:
                         rewards = rewards.unsqueeze(1)
                         dones = dones.unsqueeze(1).float()
 
-                        # We want to train alongside ensemble for the first 400 steps, and the semi-freeze state
-                        if(episode < 600):
+                        # Train VAE intensively for first 200 episodes, then reduce frequency
+                        if episode < 200:
+                            vae_loss, vae_recon_loss = self.train_vae(epochs=1, batch_size=64)
+                            writer.add_scalar("Loss/VAE", vae_loss, total_steps)
+                            writer.add_scalar("Loss/VAE Recon", vae_recon_loss, total_steps)
+                        elif episode < 400 and total_steps % 4 == 0:  # Train every 4th step
                             vae_loss, vae_recon_loss = self.train_vae(epochs=1, batch_size=64)
                             writer.add_scalar("Loss/VAE", vae_loss, total_steps)
                             writer.add_scalar("Loss/VAE Recon", vae_recon_loss, total_steps)
